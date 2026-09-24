@@ -44,6 +44,10 @@
       <div class="n">{stats.checksLast24h}</div>
       <div class="l">近 24 时抽检</div>
     </div>
+    <div class="stat">
+      <div class="n">{stats.occupiedSlotCount}</div>
+      <div class="l">已存留样格</div>
+    </div>
   </div>
 {/if}
 
@@ -51,10 +55,15 @@
   <p style="margin:0 0 0.75rem;color:var(--indigo-mist);font-size:0.9rem;">
     业务约束：仅当染缸为 <strong>ready</strong> 或 <strong>dyeing</strong> 时可新建染程；新建后染缸自动变为 dyeing。排液可用染缸「完成排液」动作。
   </p>
+  <p style="margin:0 0 0.75rem;color:var(--indigo-mist);font-size:0.9rem;">
+    留样降限：新建染程布重默认上限 <strong>100 千克</strong>。当某染坊<strong>所有启用格位的已存合计大于 0</strong>
+    时，该坊染缸新建染程布重上限降为 <strong>50 千克</strong>，超限提示因留样占位；待留样全部取出、已存合计清零后恢复 100 千克。
+  </p>
   <div class="toolbar">
     <a class="btn" href="/houses" use:link>进入染坊</a>
     <a class="btn ghost" href="/vats" use:link>管理染缸</a>
     <a class="btn ghost" href="/lots" use:link>登记染程</a>
     <a class="btn ghost" href="/checks" use:link>色牢度抽检</a>
+    <a class="btn ghost" href="/slots" use:link>留样格</a>
   </div>
 </div>

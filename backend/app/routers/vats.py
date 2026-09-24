@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user
 from app.database import get_db
 from app.models.dye_house import DyeHouse
+from app.models.fastness_check import FastnessCheck
 from app.models.user import User
 from app.models.vat import Vat
+from app.rules import release_checks_slots
 from app.schemas.vat import VatCreate, VatUpdate, VatOut
 
 router = APIRouter(prefix="/api/vats", tags=["vats"])
@@ -117,6 +119,16 @@ def delete_vat(
     item = db.query(Vat).filter(Vat.id == vat_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="染缸不存在")
+    # 释放缸上染程各色牢度的留样格占用，保证已存计数一致
+    lot_ids = [lot.id for lot in item.dye_lots]
+    if lot_ids:
+        check_ids = [
+            row[0]
+            for row in db.query(FastnessCheck.id)
+            .filter(FastnessCheck.dye_lot_id.in_(lot_ids))
+            .all()
+        ]
+        release_checks_slots(db, check_ids)
     db.delete(item)
     try:
         db.commit()

@@ -4,6 +4,8 @@
 
   let lots = [];
   let rows = [];
+  let slots = [];
+  let bindings = [];
   let error = '';
   let form = {
     dyeLotId: '',
@@ -18,7 +20,12 @@
   async function load() {
     error = '';
     try {
-      [lots, rows] = await Promise.all([api('/dye-lots'), api('/fastness-checks')]);
+      [lots, rows, slots, bindings] = await Promise.all([
+        api('/dye-lots'),
+        api('/fastness-checks'),
+        api('/sample-slots'),
+        api('/sample-slots/bindings'),
+      ]);
       if (!form.dyeLotId && lots.length) form.dyeLotId = String(lots[0].id);
     } catch (e) {
       error = e.message;
@@ -30,6 +37,13 @@
   function lotLabel(id) {
     const lot = lots.find((x) => x.id === id);
     return lot ? `${lot.recipeName} (#${lot.id})` : id;
+  }
+
+  function slotLabel(checkId) {
+    const b = bindings.find((x) => x.fastnessCheckId === checkId);
+    if (!b) return '';
+    const s = slots.find((x) => x.id === b.slotId);
+    return s ? s.slotCode : `格位#${b.slotId}`;
   }
 
   async function save() {
@@ -123,6 +137,7 @@
         <th>摩擦</th>
         <th>温度</th>
         <th>备注</th>
+        <th>留样</th>
         <th></th>
       </tr>
     </thead>
@@ -136,6 +151,13 @@
           <td>{row.rubFastness}</td>
           <td>{row.tempC}℃</td>
           <td>{row.notes || '—'}</td>
+          <td>
+            {#if slotLabel(row.id)}
+              <span class="badge ready">已入 {slotLabel(row.id)}</span>
+            {:else}
+              <span class="hint">未入格</span>
+            {/if}
+          </td>
           <td class="row-actions">
             <button class="btn ghost small" type="button" on:click={() => startEdit(row)}>编辑</button>
             <button class="btn danger small" type="button" on:click={() => remove(row.id)}>删除</button>
@@ -145,3 +167,11 @@
     </tbody>
   </table>
 </div>
+
+<style>
+  .hint {
+    color: var(--indigo-mist);
+    font-size: 0.75rem;
+    opacity: 0.7;
+  }
+</style>

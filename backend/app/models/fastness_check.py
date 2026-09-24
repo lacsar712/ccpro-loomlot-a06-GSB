@@ -8,6 +8,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.dye_lot import DyeLot
+    from app.models.sample_binding import SampleBinding
 
 
 class FastnessCheck(Base):
@@ -22,3 +23,6 @@ class FastnessCheck(Base):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     dye_lot: Mapped["DyeLot"] = relationship("DyeLot", back_populates="fastness_checks")
+    sample_binding: Mapped[Optional["SampleBinding"]] = relationship(
+        "SampleBinding", back_populates="fastness_check", cascade="all, delete-orphan", uselist=False
+    )

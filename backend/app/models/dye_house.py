@@ -7,6 +7,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.vat import Vat
+    from app.models.sample_slot import SampleSlot
 
 
 class DyeHouse(Base):
@@ -19,4 +20,7 @@ class DyeHouse(Base):
 
     vats: Mapped[List["Vat"]] = relationship(
         "Vat", back_populates="dye_house", cascade="all, delete-orphan"
+    )
+    sample_slots: Mapped[List["SampleSlot"]] = relationship(
+        "SampleSlot", back_populates="dye_house", cascade="all, delete-orphan"
     )

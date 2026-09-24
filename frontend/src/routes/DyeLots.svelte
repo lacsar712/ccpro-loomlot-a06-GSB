@@ -4,6 +4,7 @@
 
   let vats = [];
   let rows = [];
+  let slots = [];
   let error = '';
   let form = {
     vatId: '',
@@ -17,7 +18,11 @@
   async function load() {
     error = '';
     try {
-      [vats, rows] = await Promise.all([api('/vats'), api('/dye-lots')]);
+      [vats, rows, slots] = await Promise.all([
+        api('/vats'),
+        api('/dye-lots'),
+        api('/sample-slots'),
+      ]);
       const usable = vats.filter((v) => v.status === 'ready' || v.status === 'dyeing');
       if (!form.vatId && usable.length) form.vatId = String(usable[0].id);
       else if (!form.vatId && vats.length) form.vatId = String(vats[0].id);
@@ -28,6 +33,19 @@
 
   onMount(load);
 
+  // 该坊启用格位已存合计是否大于 0
+  $: occupiedHouseIds = new Set(
+    slots.filter((s) => s.isActive && s.storedCount > 0).map((s) => s.dyeHouseId)
+  );
+
+  $: selectedVat = vats.find((v) => v.id === Number(form.vatId));
+  $: fabricLimit = selectedVat
+    ? occupiedHouseIds.has(selectedVat.dyeHouseId)
+      ? 50
+      : 100
+    : 100;
+  $: limitLowered = fabricLimit === 50;
+
   function vatLabel(id) {
     const v = vats.find((x) => x.id === id);
     if (!v) return id;
@@ -36,6 +54,12 @@
 
   async function save() {
     error = '';
+    if (Number(form.fabricKg) > fabricLimit) {
+      error = limitLowered
+        ? `布重超过该坊当前上限 50 千克（因留样占位），请改至 50kg 以内或先取出留样`
+        : `布重超过新建染程布重上限 100 千克`;
+      return;
+    }
     try {
       const body = {
         vatId: Number(form.vatId),
@@ -101,10 +125,25 @@
       </select>
     </label>
     <label>配方名 <input bind:value={form.recipeName} /></label>
-    <label>布料 kg <input type="number" step="0.1" bind:value={form.fabricKg} /></label>
+    <label>
+      布料 kg（上限 {fabricLimit}）
+      <input
+        type="number"
+        step="0.1"
+        min="0.1"
+        max={fabricLimit}
+        class:over={Number(form.fabricKg) > fabricLimit}
+        bind:value={form.fabricKg}
+      />
+    </label>
     <label>开始时间 <input type="datetime-local" bind:value={form.startedAt} /></label>
     <label>操作员 <input bind:value={form.operatorName} /></label>
   </div>
+  {#if limitLowered}
+    <p class="err" style="margin:0 0 0.6rem;">
+      该染坊启用格位已有留样占位，新建染程布重上限降为 50 千克；留样全部取出清零后恢复 100 千克。
+    </p>
+  {/if}
   <div class="toolbar">
     <button class="btn" type="button" on:click={save}>{editing ? '保存修改' : '新建染程'}</button>
     {#if editing}
@@ -145,3 +184,10 @@
     </tbody>
   </table>
 </div>
+
+<style>
+  input.over {
+    border-color: var(--danger);
+    outline-color: var(--danger);
+  }
+</style>

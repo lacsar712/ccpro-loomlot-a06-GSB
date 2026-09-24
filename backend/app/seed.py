@@ -5,6 +5,8 @@ from app.database import SessionLocal
 from app.models.dye_house import DyeHouse
 from app.models.dye_lot import DyeLot
 from app.models.fastness_check import FastnessCheck
+from app.models.sample_binding import SampleBinding
+from app.models.sample_slot import SampleSlot
 from app.models.user import User
 from app.models.vat import Vat
 
@@ -97,25 +99,48 @@ def seed() -> None:
             # lot2 was on ready vat historically — keep v3 ready for demo create path
             # Re-set: creating lot2 would have set dyeing; for seed we leave one dyeing + one ready
             v3.status = "ready"
-            db.add_all(
-                [
-                    FastnessCheck(
-                        dye_lot_id=lot1.id,
-                        checked_at=now - timedelta(hours=1),
-                        wash_fastness=4,
-                        rub_fastness=3.5,
-                        temp_c=40.0,
-                        notes="湿摩略偏，可出货",
-                    ),
-                    FastnessCheck(
-                        dye_lot_id=lot2.id,
-                        checked_at=now - timedelta(days=1),
-                        wash_fastness=5,
-                        rub_fastness=4.0,
-                        temp_c=37.0,
-                        notes=None,
-                    ),
-                ]
+            check1 = FastnessCheck(
+                dye_lot_id=lot1.id,
+                checked_at=now - timedelta(hours=1),
+                wash_fastness=4,
+                rub_fastness=3.5,
+                temp_c=40.0,
+                notes="湿摩略偏，可出货",
+            )
+            check2 = FastnessCheck(
+                dye_lot_id=lot2.id,
+                checked_at=now - timedelta(days=1),
+                wash_fastness=5,
+                rub_fastness=4.0,
+                temp_c=37.0,
+                notes=None,
+            )
+            db.add_all([check1, check2])
+            db.flush()
+
+            # 留样格位：蓝靛一号坊一格，已存 1 条（绑定 check1），该坊染程布重上限因此降为 50kg
+            slot1 = SampleSlot(
+                dye_house_id=h1.id,
+                slot_code="A-01",
+                capacity=20,
+                stored_count=1,
+                is_active=True,
+            )
+            slot2 = SampleSlot(
+                dye_house_id=h2.id,
+                slot_code="B-01",
+                capacity=12,
+                stored_count=0,
+                is_active=True,
+            )
+            db.add_all([slot1, slot2])
+            db.flush()
+            db.add(
+                SampleBinding(
+                    slot_id=slot1.id,
+                    fastness_check_id=check1.id,
+                    bound_at=now - timedelta(minutes=30),
+                )
             )
             db.commit()
             print("Seed data inserted.")
