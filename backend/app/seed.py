@@ -5,6 +5,7 @@ from app.database import SessionLocal
 from app.models.dye_house import DyeHouse
 from app.models.dye_lot import DyeLot
 from app.models.fastness_check import FastnessCheck
+from app.models.sample_slot import SampleSlot
 from app.models.user import User
 from app.models.vat import Vat
 
@@ -97,26 +98,36 @@ def seed() -> None:
             # lot2 was on ready vat historically — keep v3 ready for demo create path
             # Re-set: creating lot2 would have set dyeing; for seed we leave one dyeing + one ready
             v3.status = "ready"
-            db.add_all(
-                [
-                    FastnessCheck(
-                        dye_lot_id=lot1.id,
-                        checked_at=now - timedelta(hours=1),
-                        wash_fastness=4,
-                        rub_fastness=3.5,
-                        temp_c=40.0,
-                        notes="湿摩略偏，可出货",
-                    ),
-                    FastnessCheck(
-                        dye_lot_id=lot2.id,
-                        checked_at=now - timedelta(days=1),
-                        wash_fastness=5,
-                        rub_fastness=4.0,
-                        temp_c=37.0,
-                        notes=None,
-                    ),
-                ]
+            check1 = FastnessCheck(
+                dye_lot_id=lot1.id,
+                checked_at=now - timedelta(hours=1),
+                wash_fastness=4,
+                rub_fastness=3.5,
+                temp_c=40.0,
+                notes="湿摩略偏，可出货",
             )
+            check2 = FastnessCheck(
+                dye_lot_id=lot2.id,
+                checked_at=now - timedelta(days=1),
+                wash_fastness=5,
+                rub_fastness=4.0,
+                temp_c=37.0,
+                notes=None,
+            )
+            db.add_all([check1, check2])
+            db.flush()
+
+            # 一号坊留样格：已存 1 条（绑定 check1），故该坊新建染程布重上限降为 50kg
+            slot1 = SampleSlot(
+                dye_house_id=h1.id,
+                slot_code="R-01",
+                capacity=20,
+                stored_count=1,
+                enabled=True,
+            )
+            db.add(slot1)
+            db.flush()
+            check1.sample_slot_id = slot1.id
             db.commit()
             print("Seed data inserted.")
         else:

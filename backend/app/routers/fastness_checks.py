@@ -7,6 +7,7 @@ from app.auth import get_current_user
 from app.database import get_db
 from app.models.dye_lot import DyeLot
 from app.models.fastness_check import FastnessCheck
+from app.models.sample_slot import SampleSlot
 from app.models.user import User
 from app.schemas.fastness_check import FastnessCheckCreate, FastnessCheckUpdate, FastnessCheckOut
 
@@ -91,5 +92,10 @@ def delete_check(
     item = db.query(FastnessCheck).filter(FastnessCheck.id == check_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="色牢度抽检不存在")
+    # 删除已入格的抽检前先取出，保证格位已存计数与降限判定不被破坏
+    if item.sample_slot_id is not None:
+        slot = db.query(SampleSlot).filter(SampleSlot.id == item.sample_slot_id).first()
+        if slot and slot.stored_count > 0:
+            slot.stored_count -= 1
     db.delete(item)
     db.commit()

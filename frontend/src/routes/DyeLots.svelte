@@ -4,6 +4,8 @@
 
   let vats = [];
   let rows = [];
+  let houses = [];
+  let slots = [];
   let error = '';
   let form = {
     vatId: '',
@@ -17,7 +19,12 @@
   async function load() {
     error = '';
     try {
-      [vats, rows] = await Promise.all([api('/vats'), api('/dye-lots')]);
+      [vats, rows, houses, slots] = await Promise.all([
+        api('/vats'),
+        api('/dye-lots'),
+        api('/dye-houses'),
+        api('/sample-slots'),
+      ]);
       const usable = vats.filter((v) => v.status === 'ready' || v.status === 'dyeing');
       if (!form.vatId && usable.length) form.vatId = String(usable[0].id);
       else if (!form.vatId && vats.length) form.vatId = String(vats[0].id);
@@ -28,10 +35,20 @@
 
   onMount(load);
 
+  // 当前所选染缸所属染坊是否处于留样占位（启用格位已存合计 > 0）
+  $: selectedVat = vats.find((v) => v.id === Number(form.vatId));
+  $: capped =
+    !!selectedVat &&
+    slots.some(
+      (s) => s.dyeHouseId === selectedVat.dyeHouseId && s.enabled && s.storedCount > 0
+    );
+  $: fabricCap = capped ? 50 : null;
+
   function vatLabel(id) {
     const v = vats.find((x) => x.id === id);
     if (!v) return id;
-    return `${v.vatCode}（${VAT_STATUS[v.status] || v.status}）`;
+    const h = houses.find((x) => x.id === v.dyeHouseId);
+    return `${v.vatCode}（${VAT_STATUS[v.status] || v.status}）${h ? ' · ' + h.name : ''}`;
   }
 
   async function save() {
@@ -86,7 +103,7 @@
 </script>
 
 <h1 class="page-title">染程</h1>
-<p class="page-sub">仅 ready / dyeing 染缸可开缸；提交后染缸自动变为染色中。</p>
+<p class="page-sub">仅 ready / dyeing 染缸可开缸；提交后染缸自动变为染色中。所属染坊有留样占位时，布重上限降为 50 千克。</p>
 
 <div class="panel" style="margin-bottom:1rem;">
   <div class="form-grid">
@@ -101,7 +118,11 @@
       </select>
     </label>
     <label>配方名 <input bind:value={form.recipeName} /></label>
-    <label>布料 kg <input type="number" step="0.1" bind:value={form.fabricKg} /></label>
+    <label>
+      布料 kg
+      <input type="number" step="0.1" max={fabricCap ?? undefined} bind:value={form.fabricKg} />
+      {#if capped}<span class="cap-warn">因留样占位，本坊上限 50kg</span>{/if}
+    </label>
     <label>开始时间 <input type="datetime-local" bind:value={form.startedAt} /></label>
     <label>操作员 <input bind:value={form.operatorName} /></label>
   </div>
@@ -145,3 +166,12 @@
     </tbody>
   </table>
 </div>
+
+<style>
+  .cap-warn {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.72rem;
+    color: var(--warn, #e0a84a);
+  }
+</style>

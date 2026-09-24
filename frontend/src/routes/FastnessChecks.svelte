@@ -4,6 +4,7 @@
 
   let lots = [];
   let rows = [];
+  let slots = [];
   let error = '';
   let form = {
     dyeLotId: '',
@@ -18,7 +19,11 @@
   async function load() {
     error = '';
     try {
-      [lots, rows] = await Promise.all([api('/dye-lots'), api('/fastness-checks')]);
+      [lots, rows, slots] = await Promise.all([
+        api('/dye-lots'),
+        api('/fastness-checks'),
+        api('/sample-slots'),
+      ]);
       if (!form.dyeLotId && lots.length) form.dyeLotId = String(lots[0].id);
     } catch (e) {
       error = e.message;
@@ -26,6 +31,11 @@
   }
 
   onMount(load);
+
+  function slotLabel(id) {
+    const s = slots.find((x) => x.id === id);
+    return s ? `${s.slotCode}` : `格位#${id}`;
+  }
 
   function lotLabel(id) {
     const lot = lots.find((x) => x.id === id);
@@ -122,6 +132,7 @@
         <th>耐洗</th>
         <th>摩擦</th>
         <th>温度</th>
+        <th>留样格</th>
         <th>备注</th>
         <th></th>
       </tr>
@@ -135,6 +146,13 @@
           <td>{row.washFastness}</td>
           <td>{row.rubFastness}</td>
           <td>{row.tempC}℃</td>
+          <td>
+            {#if row.sampleSlotId != null}
+              <span class="badge ready">已入 {slotLabel(row.sampleSlotId)}</span>
+            {:else}
+              <span class="muted">未入格</span>
+            {/if}
+          </td>
           <td>{row.notes || '—'}</td>
           <td class="row-actions">
             <button class="btn ghost small" type="button" on:click={() => startEdit(row)}>编辑</button>
@@ -145,3 +163,10 @@
     </tbody>
   </table>
 </div>
+
+<style>
+  .muted {
+    color: var(--indigo-mist);
+    font-size: 0.78rem;
+  }
+</style>

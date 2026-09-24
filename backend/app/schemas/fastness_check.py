@@ -36,3 +36,4 @@ class FastnessCheckOut(BaseModel):
     rub_fastness: float = Field(serialization_alias="rubFastness")
     temp_c: float = Field(serialization_alias="tempC")
     notes: Optional[str] = None
+    sample_slot_id: Optional[int] = Field(default=None, serialization_alias="sampleSlotId")

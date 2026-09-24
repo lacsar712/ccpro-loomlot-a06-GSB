@@ -8,6 +8,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.dye_lot import DyeLot
+    from app.models.sample_slot import SampleSlot
 
 
 class FastnessCheck(Base):
@@ -21,4 +22,11 @@ class FastnessCheck(Base):
     temp_c: Mapped[float] = mapped_column(Float, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # 入格留样：一条色牢度至多绑定一个留样格（NULL 表示尚未入格）。
+    # 一格可存多条（容量由 sample_slots.capacity 与 stored_count 控制），故不加 unique。
+    sample_slot_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("sample_slots.id"), nullable=True, index=True
+    )
+
     dye_lot: Mapped["DyeLot"] = relationship("DyeLot", back_populates="fastness_checks")
+    sample_slot: Mapped[Optional["SampleSlot"]] = relationship("SampleSlot", back_populates="checks")

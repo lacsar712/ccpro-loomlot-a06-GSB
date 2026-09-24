@@ -1,6 +1,6 @@
 # LoomLot-01 · 染坊缸染与色牢度抽检
 
-靛蓝染坊台：按 **染坊 → 染缸 → 染程 → 色牢度** 工序推进，聚焦缸染调度与抽检，不是库存出入库系统。
+靛蓝染坊台：按 **染坊 → 染缸 → 染程 → 色牢度 → 留样格** 工序推进，聚焦缸染调度、抽检与留样占位，不是库存出入库系统。
 
 ## 技术栈
 
@@ -50,13 +50,34 @@ docker compose down
 1. **DyeHouse** — `name`, `waterNote`, `notes`
 2. **Vat** — `dyeHouseId`, `vatCode`, `fiberType`, `capacityL`, `status` ∈ `ready|dyeing|drain`
 3. **DyeLot** — `vatId`, `recipeName`, `fabricKg`, `startedAt`, `operatorName`
-4. **FastnessCheck** — `dyeLotId`, `checkedAt`, `washFastness`(1–5), `rubFastness`(>0), `tempC`, `notes`
+4. **FastnessCheck** — `dyeLotId`, `checkedAt`, `washFastness`(1–5), `rubFastness`(>0), `tempC`, `notes`, `sampleSlotId`（入格绑定，可空）
+5. **SampleSlot（留样格）** — `dyeHouseId`, `slotCode`, `capacity`（可存条数，正整数）, `storedCount`（已存条数，默认 0）, `enabled`（启用与否）；同坊 `slotCode` 唯一
 
 ### 规则
 
 - 仅当染缸状态为 `ready` 或 `dyeing` 时可新建染程，否则 409
 - 新建染程后，染缸状态自动设为 `dyeing`
 - 可选接口：`POST /api/vats/{id}/drain` 将染缸置为 `drain`
+
+#### 留样格与入格
+
+- 同坊格位码唯一（重复返回 400）；可存条数必须为正整数（`< 1` 返回 400）。
+- 入格：`POST /api/sample-slots/{id}/store`，绑定一条色牢度，`storedCount` 加一。
+  - 操作员（dyer）即可入格；停用中的格位不能入格（409）。
+  - 一条色牢度只能入一次（重复入格 409）；满格再入返回 409。
+- 出格：`POST /api/sample-slots/{id}/unstore`，解除绑定、`storedCount` 减一。
+- **停用格位需染坊主管（admin）**，且该格位已存必须为 0，否则分别返回 403 / 409。
+- 删除格位同样要求已存为 0（409）。
+
+#### 留样占位 → 染程布重降限（核心联动）
+
+- 当某染坊**所有启用格位的已存条数合计大于 0** 时，该坊各染缸上**新建染程的布重上限降为 50 千克**；提交 `fabricKg > 50` 返回 **400**，并提示「因留样占位」。
+- 判定按染坊隔离，且只统计**启用**格位：他坊留样不影响本坊；停用格位中的存量不计入。
+- 待该坊启用格位已存全部清零（留样全部取出）后，恢复原布重规则（不再设 50kg 上限）。
+- 染程改挂染缸 / 修改布重时同样按目标染坊当前占位状态校验。
+- 该联动在后端 `POST/PUT /api/dye-lots` 强制执行，前端仅作提示，故「格位与布重上限互不影响」的实现不过关。
+- 看板 `sampleSlotsOccupied` 展示**已存大于 0 的格位数**，与留样格列表统计口径一致。
+- 种子数据含一格已存（一号坊 `R-01`，已存 1 条并绑定一条色牢度），因此初始状态下一号坊新建染程布重上限为 50kg。
 
 ## 主要 API
 
@@ -66,6 +87,7 @@ docker compose down
 - `GET/POST/PUT/DELETE /api/vats` · `POST /api/vats/{id}/drain`
 - `GET/POST/PUT/DELETE /api/dye-lots`
 - `GET/POST/PUT/DELETE /api/fastness-checks`
+- `GET/POST/PUT/DELETE /api/sample-slots` · `POST /api/sample-slots/{id}/store` · `POST /api/sample-slots/{id}/unstore`
 - `GET /api/dashboard/stats`
 
 除登录外需 `Authorization: Bearer <token>`。字段对外为 camelCase。
